@@ -33,10 +33,10 @@ def countPlayers():
     """Returns the number of players currently registered."""
     conn, cur = connect()
     cur.execute("SELECT count(id) FROM players;")
-    a = cur.fetchone()
+    result = cur.fetchone()
     cur.close()
     conn.close()
-    return a[0]
+    return result[0]
 
 def registerPlayer(name):
     """Adds a player to the tournament database.
@@ -47,7 +47,11 @@ def registerPlayer(name):
     Args:
       name: the player's full name (need not be unique).
     """
-
+    conn, cur = connect()
+    cur.execute("INSERT INTO players(name) values (%s);",(name,))
+    conn.commit()
+    cur.close()
+    conn.close()
 
 def playerStandings():
     """Returns a list of the players and their win records, sorted by wins.
@@ -62,7 +66,12 @@ def playerStandings():
         wins: the number of matches the player has won
         matches: the number of matches the player has played
     """
-
+    conn, cur = connect()
+    cur.execute("SELECT * FROM standings;")
+    result = cur.fetchall()
+    cur.close()
+    conn.close()
+    return result
 
 def reportMatch(winner, loser):
     """Records the outcome of a single match between two players.
@@ -71,7 +80,11 @@ def reportMatch(winner, loser):
       winner:  the id number of the player who won
       loser:  the id number of the player who lost
     """
-
+    conn, cur = connect()
+    cur.execute("INSERT INTO matches(winner, loser) VALUES(%s,%s);",(winner, loser))
+    conn.commit()
+    cur.close()
+    conn.close()
 
 def swissPairings():
     """Returns a list of pairs of players for the next round of a match.
@@ -88,3 +101,17 @@ def swissPairings():
         id2: the second player's unique id
         name2: the second player's name
     """
+    conn, cur = connect()
+
+    # Needed information is in standings view, just filter it
+    cur.execute("select id, name from standings;")
+    standings = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    # transforms
+    # [(id1, name1), (id2, name2), ...]
+    # into
+    # [(id1, name1, id2, name2), ...]
+    pairings = [a + b for a, b in zip(standings[::2], standings[1::2])]
+    return pairings
