@@ -6,20 +6,25 @@
 import psycopg2
 
 
-def connect():
+def connect(database_name="tournament"):
     """Connect to the PostgreSQL database.  Returns a database connection."""
-    db = psycopg2.connect("dbname=tournament")
-    cursor = db.cursor()
-    return db, cursor
+    try:
+        db = psycopg2.connect("dbname={}".format(database_name))
+        cursor = db.cursor()
+        return db, cursor
+    except Exception, e:
+        print("The following error happened while trying to connect to the"
+              "database\n" + str(e))
 
 
 def deleteMatches():
     """Remove all the match records from the database."""
     conn, cur = connect()
-    cur.execute("DELETE FROM matches;")
+    cur.execute("TRUNCATE matches;")
     conn.commit()
     cur.close()
     conn.close()
+
 
 def deletePlayers():
     """Remove all the player records from the database."""
@@ -29,6 +34,7 @@ def deletePlayers():
     cur.close()
     conn.close()
 
+
 def countPlayers():
     """Returns the number of players currently registered."""
     conn, cur = connect()
@@ -37,6 +43,7 @@ def countPlayers():
     cur.close()
     conn.close()
     return result[0]
+
 
 def registerPlayer(name):
     """Adds a player to the tournament database.
@@ -48,16 +55,19 @@ def registerPlayer(name):
       name: the player's full name (need not be unique).
     """
     conn, cur = connect()
-    cur.execute("INSERT INTO players(name) values (%s);",(name,))
+    query = "INSERT INTO players(name) values (%s);"
+    params = (name,)
+    cur.execute(query, params)
     conn.commit()
     cur.close()
     conn.close()
 
+
 def playerStandings():
     """Returns a list of the players and their win records, sorted by wins.
 
-    The first entry in the list should be the player in first place, or a player
-    tied for first place if there is currently a tie.
+    The first entry in the list should be the player in first place, or a
+    player tied for first place if there is currently a tie.
 
     Returns:
       A list of tuples, each of which contains (id, name, wins, matches):
@@ -73,6 +83,7 @@ def playerStandings():
     conn.close()
     return result
 
+
 def reportMatch(winner, loser):
     """Records the outcome of a single match between two players.
 
@@ -81,10 +92,13 @@ def reportMatch(winner, loser):
       loser:  the id number of the player who lost
     """
     conn, cur = connect()
-    cur.execute("INSERT INTO matches(winner, loser) VALUES(%s,%s);",(winner, loser))
+    query = "INSERT INTO matches(winner, loser) VALUES(%s,%s);"
+    params = (winner, loser)
+    cur.execute(query, params)
     conn.commit()
     cur.close()
     conn.close()
+
 
 def swissPairings():
     """Returns a list of pairs of players for the next round of a match.
@@ -101,17 +115,16 @@ def swissPairings():
         id2: the second player's unique id
         name2: the second player's name
     """
-    conn, cur = connect()
-
     # Needed information is in standings view, just filter it
-    cur.execute("select id, name from standings;")
-    standings = cur.fetchall()
-    cur.close()
-    conn.close()
+    pairings = []
+    standings = playerStandings()
 
     # transforms
     # [(id1, name1), (id2, name2), ...]
     # into
     # [(id1, name1, id2, name2), ...]
-    pairings = [a + b for a, b in zip(standings[::2], standings[1::2])]
+    n = len(standings)
+    for i in range(0, n-1, 2):
+        pairings += [(standings[i][0], standings[i][1], standings[i+1][0],
+                      standings[i+1][1])]
     return pairings
